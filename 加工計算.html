@@ -1,0 +1,239 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>加工計算小工具</title>
+  <!-- PWA 相關配置 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <style>
+    body {
+      background-color: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+    }
+    .container {
+      background-color: white;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 90%;
+      margin: 1rem;
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .input-group {
+      margin-bottom: 0.75rem;
+    }
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0.25rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.25rem;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+    button {
+      width: 100%;
+      background-color: #3b82f6;
+      color: white;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button:hover {
+      background-color: #2563eb;
+    }
+    #result {
+      margin-top: 1rem;
+      text-align: center;
+    }
+    #result p {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin: 0.5rem 0;
+    }
+    #materialInfo {
+      font-size: 0.75rem;
+      color: #4b5563;
+      margin-top: 0.5rem;
+      white-space: pre-line;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
+      h1 {
+        font-size: 1.125rem;
+      }
+      input, select, button {
+        padding: 0.5rem;
+        font-size: 0.875rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>加工計算小工具</h1>
+    
+    <div class="input-group">
+      <label for="material">材料類型</label>
+      <select id="material" onchange="updateMaterialInfo()">
+        <option value="P">P - 鋼 (碳鋼、合金鋼等)</option>
+        <option value="M">M - 不銹鋼 (奧氏體、雙相等)</option>
+        <option value="K">K - 鑄鐵 (灰鑄鐵、球墨鑄鐵)</option>
+        <option value="N">N - 非鐵金屬 (鋁合金、銅合金)</option>
+        <option value="S">S - 難削材 (鎳基合金、鈦合金)</option>
+      </select>
+      <p id="materialInfo"></p>
+    </div>
+    
+    <div class="input-group">
+      <label for="diameter">直徑 (mm)</label>
+      <input type="number" id="diameter" placeholder="輸入直徑" step="0.1" min="0">
+    </div>
+    
+    <div class="input-group">
+      <label for="cuttingSpeed">切削速度 (m/min)</label>
+      <input type="number" id="cuttingSpeed" placeholder="輸入切削速度" step="0.1" min="0">
+    </div>
+    
+    <div class="input-group">
+      <label for="feedPerTooth">每刃進給 (mm/tooth)</label>
+      <input type="number" id="feedPerTooth" placeholder="輸入每刃進給" step="0.001" min="0">
+    </div>
+    
+    <div class="input-group">
+      <label for="numberOfTeeth">刀具刃數</label>
+      <input type="number" id="numberOfTeeth" placeholder="輸入刀具刃數" step="1" min="1" value="1">
+    </div>
+    
+    <button onclick="calculate()">計算</button>
+    
+    <div id="result">
+      <p id="rpmResult"></p>
+      <p id="feedRateResult"></p>
+    </div>
+  </div>
+
+  <script>
+    // 材料與切削速度範圍
+    const materialData = {
+      P: { name: '鋼', examples: '碳鋼、合金鋼、不銹鋼（低合金）', speedRange: '80-200' },
+      M: { name: '不銹鋼', examples: '奧氏體不銹鋼、雙相不銹鋼', speedRange: '50-150' },
+      K: { name: '鑄鐵', examples: '灰鑄鐵、球墨鑄鐵', speedRange: '100-250' },
+      N: { name: '非鐵金屬', examples: '鋁合金、銅合金', speedRange: '200-600' },
+      S: { name: '難削材', examples: '鎳基合金、鈦合金', speedRange: '20-80' }
+    };
+
+    // 更新材料信息
+    function updateMaterialInfo() {
+      const material = document.getElementById('material').value;
+      const info = materialData[material];
+      document.getElementById('materialInfo').innerText = 
+        `常見材質：${info.examples}\n推薦切削速度：${info.speedRange} m/min`;
+    }
+
+    // 初始化材料信息
+    updateMaterialInfo();
+
+    function calculate() {
+      // 獲取輸入值
+      const diameter = parseFloat(document.getElementById('diameter').value);
+      const cuttingSpeed = parseFloat(document.getElementById('cuttingSpeed').value);
+      const feedPerTooth = parseFloat(document.getElementById('feedPerTooth').value);
+      const numberOfTeeth = parseInt(document.getElementById('numberOfTeeth').value);
+      
+      // 驗證輸入
+      if (!diameter || !cuttingSpeed || !feedPerTooth || !numberOfTeeth) {
+        alert('請填寫所有欄位！');
+        return;
+      }
+      
+      // 計算轉速 (RPM)
+      const rpm = (cuttingSpeed * 1000) / (Math.PI * diameter);
+      
+      // 計算進給率 (mm/min)
+      const feedRate = feedPerTooth * numberOfTeeth * rpm;
+      
+      // 顯示結果，保留2位小數
+      document.getElementById('rpmResult').innerText = `轉速: ${rpm.toFixed(2)} RPM`;
+      document.getElementById('feedRateResult').innerText = `進給率: ${feedRate.toFixed(2)} mm/min`;
+    }
+
+    // 註冊 Service Worker 以支持 PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker 註冊成功'))
+          .catch(err => console.log('Service Worker 註冊失敗:', err));
+      });
+    }
+  </script>
+</body>
+</html>
