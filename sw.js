@@ -3,7 +3,7 @@ self.addEventListener('install', event => {
     caches.open('machining-calc-v1').then(cache => {
       return cache.addAll([
         'index.html',
-        'icon.png'
+        'manifest.json'
       ]);
     })
   );
