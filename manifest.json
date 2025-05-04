@@ -1,10 +1,16 @@
 {
-  "name": "加工計算小工具",
-  "short_name": "加工計算",
-  "description": "計算加工轉速和進給率，支持多種材料",
-  "start_url": "index.html",
+  "name": "加工計算器",
+  "short_name": "加工計算器",
+  "description": "一款用於車削、銑削、鑽削的加工參數計算工具",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#3b82f6",
-  "icons": []
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
