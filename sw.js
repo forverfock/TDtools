@@ -2,7 +2,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open('machining-calc-v1').then(cache => {
       return cache.addAll([
-        'index.html',
+        '加工計算.html',
         'manifest.json'
       ]);
     })
