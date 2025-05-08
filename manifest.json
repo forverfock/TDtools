@@ -1,16 +1,9 @@
 {
-  "name": "加工計算器",
-  "short_name": "加工計算器",
-  "description": "一款用於車削、銑削、鑽削的加工參數計算工具",
-  "start_url": "/index.html",
-  "display": "standalone",
-  "background_color": "#f3f4f6",
-  "theme_color": "#3b82f6",
-  "icons": [
-    {
-      "src": "/icon.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    }
-  ]
-}
+       "name": "加工計算器",
+       "short_name": "加工計算器",
+       "description": "一款用於車削、銑削、鑽削的加工參數計算工具",
+       "start_url": "/index.html",
+       "display": "standalone",
+       "background_color": "#f3f4f6",
+       "theme_color": "#3b82f6"
+     }
