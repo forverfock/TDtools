@@ -1,0 +1,594 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>加工計算器</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <style>
+    body {
+      background-color: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+    }
+    .container {
+      background-color: white;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 90%;
+      margin: 1rem;
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    h2 {
+      font-size: 1rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      color: #374151;
+    }
+    .tab-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .tab-button, .material-button {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      background-color: #e5e7eb;
+      color: #374151;
+      transition: background-color 0.2s;
+    }
+    .tab-button.active {
+      background-color: #f97316 !important;
+      color: white !important;
+    }
+    .tab-button:hover {
+      background-color: #d1d5db;
+    }
+    .tab-button.active:hover {
+      background-color: #ea580c !important;
+    }
+    .material-button.P { background-color: #bfdbfe; }
+    .material-button.M { background-color: #fef9c3; }
+    .material-button.K { background-color: #fecaca; }
+    .material-button.N { background-color: #d1fae5; }
+    .material-button.S { background-color: #ffedd5; }
+    .material-button.H { background-color: #e5e7eb; }
+    .material-button.active.P { background-color: #3b82f6; color: white; }
+    .material-button.active.M { background-color: #eab308; color: white; }
+    .material-button.active.K { background-color: #ef4444; color: white; }
+    .material-button.active.N { background-color: #10b981; color: white; }
+    .material-button.active.S { background-color: #8b4513; color: white; }
+    .material-button.active.H { background-color: #6b7280; color: white; }
+    .material-button.P:hover { background-color: #93c5fd; }
+    .material-button.M:hover { background-color: #fef08a; }
+    .material-button.K:hover { background-color: #f87171; }
+    .material-button.N:hover { background-color: #6ee7b7; }
+    .material-button.S:hover { background-color: #fed7aa; }
+    .material-button.H:hover { background-color: #d1d5db; }
+    .material-button.active.P:hover { background-color: #2563eb; }
+    .material-button.active.M:hover { background-color: #ca8a04; }
+    .material-button.active.K:hover { background-color: #dc2626; }
+    .material-button.active.N:hover { background-color: #059669; }
+    .material-button.active.S:hover { background-color: #6b2f0e; }
+    .material-button.active.H:hover { background-color: #4b5563; }
+    .main-content {
+      display: flex;
+      gap: 2rem;
+      margin-bottom: 1rem;
+    }
+    .input-section, .result-section {
+      flex: 1;
+    }
+    .calculate-button-container {
+      display: flex;
+      justify-content: center;
+    }
+    .calculate-button {
+      width: 200px;
+      background-color: #3b82f6;
+      color: white;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .calculate-button:hover {
+      background-color: #2563eb;
+    }
+    .input-group {
+      margin-bottom: 0.75rem;
+    }
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0.25rem;
+    }
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.25rem;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+    input[readonly] {
+      background-color: #f9fafb;
+      cursor: default;
+    }
+    input:focus, input[readonly]:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+    #parameters {
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    #parameters p {
+      font-size: 0.875rem;
+      font-weight: normal;
+      color: #4b5563;
+      margin: 0.5rem 0;
+    }
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+      .main-content {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .input-section, .result-section {
+        width: 100%;
+      }
+      .calculate-button {
+        width: 100%;
+      }
+      h1 {
+        font-size: 1.125rem;
+      }
+      .tab-button, .material-button {
+        font-size: 0.75rem;
+        padding: 0.4rem;
+      }
+      input {
+        padding: 0.5rem;
+        font-size: 0.875rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>加工計算器</h1>
+    
+    <div class="tab-bar">
+      <button class="tab-button active" data-tab="turning" onclick="switchTab('turning')">車削</button>
+      <button class="tab-button" data-tab="milling" onclick="switchTab('milling')">銑削</button>
+      <button class="tab-button" data-tab="drilling" onclick="switchTab('drilling')">鑽削</button>
+    </div>
+    
+    <div class="tab-bar">
+      <button class="material-button active P" onclick="selectMaterial('P')">P - 鋼</button>
+      <button class="material-button M" onclick="selectMaterial('M')">M - 不銹鋼</button>
+      <button class="material-button K" onclick="selectMaterial('K')">K - 鑄鐵</button>
+      <button class="material-button N" onclick="selectMaterial('N')">N - 非鐵</button>
+      <button class="material-button S" onclick="selectMaterial('S')">S - 難削材</button>
+      <button class="material-button H" onclick="selectMaterial('H')">H - 高硬度</button>
+    </div>
+    
+    <div id="parameters"></div>
+    
+    <div class="main-content">
+      <div class="input-section">
+        <h2>計算資訊</h2>
+        <div id="inputFields"></div>
+      </div>
+      
+      <div class="result-section">
+        <h2>計算結果</h2>
+        <div id="results"></div>
+      </div>
+    </div>
+    
+    <div class="calculate-button-container">
+      <button class="calculate-button" onclick="calculate()">計算</button>
+    </div>
+  </div>
+
+  <script>
+    const materialData = {
+      P: { 
+        name: '鋼', 
+        examples: '碳鋼、合金鋼',
+        turning: { vc: '80-200', f: '0.1-0.4' }, 
+        milling: { vc: '80-200', fz: '0.05-0.2' }, 
+        drilling: { vc: '80-200', f: '0.05-0.2' }
+      },
+      M: { 
+        name: '不銹鋼', 
+        examples: '304、316等型號',
+        turning: { vc: '50-150', f: '0.08-0.3' }, 
+        milling: { vc: '50-150', fz: '0.04-0.15' }, 
+        drilling: { vc: '50-150', f: '0.04-0.15' }
+      },
+      K: { 
+        name: '鑄鐵', 
+        examples: '灰鑄鐵、球墨鑄鐵',
+        turning: { vc: '100-250', f: '0.1-0.5' }, 
+        milling: { vc: '100-250', fz: '0.08-0.25' }, 
+        drilling: { vc: '100-250', f: '0.08-0.25' }
+      },
+      N: { 
+        name: '非鐵金屬', 
+        examples: '鋁合金、銅合金',
+        turning: { vc: '200-600', f: '0.1-0.5' }, 
+        milling: { vc: '200-600', fz: '0.1-0.3' }, 
+        drilling: { vc: '200-600', f: '0.1-0.3' }
+      },
+      S: { 
+        name: '難削材', 
+        examples: '鎳基合金、鈦合金',
+        turning: { vc: '20-80', f: '0.05-0.2' }, 
+        milling: { vc: '20-80', fz: '0.03-0.1' }, 
+        drilling: { vc: '20-80', f: '0.03-0.1' }
+      },
+      H: { 
+        name: '高硬度材料', 
+        examples: '淬硬鋼、模具鋼、HRC 45 以上之工具鋼',
+        turning: { vc: '30-100', f: '0.05-0.15' }, 
+        milling: { vc: '30-100', fz: '0.03-0.12' }, 
+        drilling: { vc: '30-100', f: '0.03-0.12' }
+      }
+    };
+
+    let currentTab = 'turning';
+    let currentMaterial = 'P';
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      const activeBtn = document.querySelector(`.tab-button[data-tab="${tab}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+      }
+      updateInputs();
+      updateParameters();
+      updateResultsDisplay();
+    }
+
+    function selectMaterial(material) {
+      currentMaterial = material;
+      document.querySelectorAll('.material-button').forEach(btn => {
+        btn.classList.toggle('active', btn.classList.contains(material));
+      });
+      updateParameters();
+    }
+
+    function updateParameters() {
+      const data = materialData[currentMaterial][currentTab];
+      const params = currentTab === 'milling' ? 
+        `常見材質：${materialData[currentMaterial].examples}<br>建議切削速度 (Vc): ${data.vc} m/min<br>建議每刃進給 (fz): ${data.fz} mm/tooth` :
+        `常見材質：${materialData[currentMaterial].examples}<br>建議切削速度 (Vc): ${data.vc} m/min<br>建議進給率 (f): ${data.f} mm/rev`;
+      document.getElementById('parameters').innerHTML = `<p>${params}</p>`;
+    }
+
+    function updateInputs() {
+      const fields = {
+        turning: `
+          <div class="input-group">
+            <label for="diameter">工件直徑 (mm)</label>
+            <input type="number" id="diameter" placeholder="輸入直徑" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="cuttingSpeed">切削速度 (m/min)</label>
+            <input type="number" id="cuttingSpeed" placeholder="輸入切削速度" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="rpm">轉速 (RPM)</label>
+            <input type="number" id="rpm" placeholder="輸入轉速（可選）" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="feedRate">進給率 (mm/rev)</label>
+            <input type="number" id="feedRate" placeholder="輸入進給率" step="0.01" min="0">
+          </div>
+          <div class="input-group">
+            <label for="tableFeed">進給率 (mm/min)</label>
+            <input type="number" id="tableFeed" placeholder="輸入進給率（可選）" step="0.1" min="0">
+          </div>
+        `,
+        milling: `
+          <div class="input-group">
+            <label for="diameter">刀具直徑 (mm)</label>
+            <input type="number" id="diameter" placeholder="輸入直徑" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="cuttingSpeed">切削速度 (m/min)</label>
+            <input type="number" id="cuttingSpeed" placeholder="輸入切削速度" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="rpm">轉速 (RPM)</label>
+            <input type="number" id="rpm" placeholder="輸入轉速（可選）" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="feedPerTooth">每刃進給 (mm/tooth)</label>
+            <input type="number" id="feedPerTooth" placeholder="輸入每刃進給" step="0.001" min="0">
+          </div>
+          <div class="input-group">
+            <label for="numberOfTeeth">刀具刃數</label>
+            <input type="number" id="numberOfTeeth" placeholder="輸入刀具刃數" step="1" min="1" value="4">
+          </div>
+          <div class="input-group">
+            <label for="tableFeed">進給率 (mm/min)</label>
+            <input type="number" id="tableFeed" placeholder="輸入進給率（可選）" step="0.1" min="0">
+          </div>
+        `,
+        drilling: `
+          <div class="input-group">
+            <label for="diameter">鑽頭直徑 (mm)</label>
+            <input type="number" id="diameter" placeholder="輸入直徑" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="cuttingSpeed">切削速度 (m/min)</label>
+            <input type="number" id="cuttingSpeed" placeholder="輸入切削速度" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="rpm">轉速 (RPM)</label>
+            <input type="number" id="rpm" placeholder="輸入轉速（可選）" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="feedRate">進給率 (mm/rev)</label>
+            <input type="number" id="feedRate" placeholder="輸入進給率" step="0.01" min="0">
+          </div>
+          <div class="input-group">
+            <label for="feedPerTooth">每刃進給 (mm/tooth)</label>
+            <input type="number" id="feedPerTooth" placeholder="輸入每刃進給" step="0.001" min="0">
+          </div>
+          <div class="input-group">
+            <label for="numberOfTeeth">刃數</label>
+            <input type="number" id="numberOfTeeth" placeholder="輸入刃數" step="1" min="1" value="2">
+          </div>
+          <div class="input-group">
+            <label for="tableFeed">進給率 (mm/min)</label>
+            <input type="number" id="tableFeed" placeholder="輸入進給率（可選）" step="0.1" min="0">
+          </div>
+          <div class="input-group">
+            <label for="drillAngle">鑽頭頂角 (度)</label>
+            <input type="number" id="drillAngle" placeholder="輸入頂角" step="1" min="0" value="118">
+          </div>
+        `
+      };
+      document.getElementById('inputFields').innerHTML = fields[currentTab];
+    }
+
+    function updateResultsDisplay() {
+      const results = {
+        turning: [
+          { label: '切削速度 (m/min)', id: 'resultCuttingSpeed', value: '-' },
+          { label: '轉速 (RPM)', id: 'resultRpm', value: '-' },
+          { label: '進給率 (mm/rev)', id: 'resultFeedRate', value: '-' },
+          { label: '進給率 (mm/min)', id: 'resultTableFeed', value: '-' }
+        ],
+        milling: [
+          { label: '切削速度 (m/min)', id: 'resultCuttingSpeed', value: '-' },
+          { label: '轉速 (RPM)', id: 'resultRpm', value: '-' },
+          { label: '每刃進給 (mm/tooth)', id: 'resultFeedPerTooth', value: '-' },
+          { label: '進給率 (mm/min)', id: 'resultTableFeed', value: '-' }
+        ],
+        drilling: [
+          { label: '切削速度 (m/min)', id: 'resultCuttingSpeed', value: '-' },
+          { label: '轉速 (RPM)', id: 'resultRpm', value: '-' },
+          { label: '進給率 (mm/rev)', id: 'resultFeedRate', value: '-' },
+          { label: '每刃進給 (mm/tooth)', id: 'resultFeedPerTooth', value: '-' },
+          { label: '進給率 (mm/min)', id: 'resultTableFeed', value: '-' },
+          { label: '靜點到鑽肩高度 (mm)', id: 'resultDrillHeight', value: '-' }
+        ]
+      };
+      document.getElementById('results').innerHTML = results[currentTab].map(r => `
+        <div class="input-group">
+          <label for="${r.id}">${r.label}</label>
+          <input id="${r.id}" value="${r.value}" readonly>
+        </div>
+      `).join('');
+    }
+
+    function calculate() {
+      try {
+        // 获取输入值
+        const diameter = parseFloat(document.getElementById('diameter')?.value) || NaN;
+        const cuttingSpeed = parseFloat(document.getElementById('cuttingSpeed')?.value) || NaN;
+        const rpm = parseFloat(document.getElementById('rpm')?.value) || NaN;
+        const feedRate = parseFloat(document.getElementById('feedRate')?.value) || NaN;
+        const tableFeed = parseFloat(document.getElementById('tableFeed')?.value) || NaN;
+        const feedPerTooth = parseFloat(document.getElementById('feedPerTooth')?.value) || NaN;
+        const numberOfTeeth = parseInt(document.getElementById('numberOfTeeth')?.value) || NaN;
+        const drillAngle = parseFloat(document.getElementById('drillAngle')?.value) || NaN;
+
+        console.log('Inputs:', { diameter, cuttingSpeed, rpm, feedRate, tableFeed, feedPerTooth, numberOfTeeth, drillAngle });
+
+        // 验证基本输入
+        let errors = [];
+        if (isNaN(diameter) || diameter <= 0) errors.push('直徑');
+        if ((isNaN(cuttingSpeed) || cuttingSpeed <= 0) && (isNaN(rpm) || rpm <= 0)) errors.push('切削速度或轉速');
+
+        if (errors.length > 0) {
+          alert(`請填寫以下欄位：${errors.join('、')}`);
+          return;
+        }
+
+        // 计算转速和切削速度
+        let finalRpm, finalCuttingSpeed;
+        if (!isNaN(cuttingSpeed) && cuttingSpeed > 0) {
+          finalRpm = (cuttingSpeed * 1000) / (Math.PI * diameter);
+          finalCuttingSpeed = cuttingSpeed;
+        } else {
+          finalCuttingSpeed = (rpm * Math.PI * diameter) / 1000;
+          finalRpm = rpm;
+        }
+
+        // 更新结果
+        document.getElementById('resultCuttingSpeed').value = finalCuttingSpeed.toFixed(2);
+        document.getElementById('resultRpm').value = finalRpm.toFixed(2);
+
+        if (currentTab === 'turning') {
+          if ((isNaN(feedRate) || feedRate <= 0) && (isNaN(tableFeed) || tableFeed <= 0)) {
+            alert('請填寫進給率 (mm/rev 或 mm/min)！');
+            return;
+          }
+
+          let finalFeedRate, finalTableFeed;
+          if (!isNaN(feedRate) && feedRate > 0) {
+            finalFeedRate = feedRate;
+            finalTableFeed = feedRate * finalRpm;
+          } else {
+            finalTableFeed = tableFeed;
+            finalFeedRate = tableFeed / finalRpm;
+          }
+
+          document.getElementById('resultFeedRate').value = finalFeedRate.toFixed(3);
+          document.getElementById('resultTableFeed').value = finalTableFeed.toFixed(2);
+        } else if (currentTab === 'milling') {
+          if ((isNaN(feedPerTooth) || feedPerTooth <= 0) && (isNaN(tableFeed) || tableFeed <= 0)) {
+            alert('請填寫每刃進給或進給率！');
+            return;
+          }
+          if (isNaN(numberOfTeeth) || numberOfTeeth <= 0) {
+            alert('請填寫刀具刃數！');
+            return;
+          }
+
+          let finalFeedPerTooth, finalTableFeed;
+          if (!isNaN(feedPerTooth) && feedPerTooth > 0) {
+            finalFeedPerTooth = feedPerTooth;
+            finalTableFeed = feedPerTooth * numberOfTeeth * finalRpm;
+          } else {
+            finalTableFeed = tableFeed;
+            finalFeedPerTooth = tableFeed / (numberOfTeeth * finalRpm);
+          }
+
+          document.getElementById('resultFeedPerTooth').value = finalFeedPerTooth.toFixed(3);
+          document.getElementById('resultTableFeed').value = finalTableFeed.toFixed(2);
+        } else if (currentTab === 'drilling') {
+          if ((isNaN(feedRate) || feedRate <= 0) && (isNaN(feedPerTooth) || feedPerTooth <= 0) && (isNaN(tableFeed) || tableFeed <= 0)) {
+            alert('請填寫進給率或每刃進給或進給率 (mm/min)！');
+            return;
+          }
+          if (!isNaN(feedPerTooth) && feedPerTooth > 0 && (isNaN(numberOfTeeth) || numberOfTeeth <= 0)) {
+            alert('請填寫刃數！');
+            return;
+          }
+          if (isNaN(drillAngle) || drillAngle <= 0) {
+            alert('請填寫鑽頭頂角！');
+            return;
+          }
+
+          let finalFeedRate, finalFeedPerTooth, finalTableFeed;
+          if (!isNaN(feedPerTooth) && feedPerTooth > 0) {
+            finalFeedPerTooth = feedPerTooth;
+            finalFeedRate = feedPerTooth * numberOfTeeth;
+            finalTableFeed = finalFeedRate * finalRpm;
+          } else if (!isNaN(tableFeed) && tableFeed > 0) {
+            finalTableFeed = tableFeed;
+            finalFeedRate = tableFeed / finalRpm;
+            finalFeedPerTooth = numberOfTeeth ? finalFeedRate / numberOfTeeth : finalFeedRate;
+          } else {
+            finalFeedRate = feedRate;
+            finalFeedPerTooth = numberOfTeeth ? feedRate / numberOfTeeth : feedRate;
+            finalTableFeed = feedRate * finalRpm;
+          }
+
+          document.getElementById('resultFeedRate').value = finalFeedRate.toFixed(3);
+          document.getElementById('resultFeedPerTooth').value = finalFeedPerTooth.toFixed(3);
+          document.getElementById('resultTableFeed').value = finalTableFeed.toFixed(2);
+          document.getElementById('resultDrillHeight').value = ((diameter / 2) / Math.tan((drillAngle / 2) * (Math.PI / 180))).toFixed(2);
+        }
+
+        console.log('Results:', {
+          cuttingSpeed: document.getElementById('resultCuttingSpeed').value,
+          rpm: document.getElementById('resultRpm').value,
+          feedRate: document.getElementById('resultFeedRate')?.value,
+          tableFeed: document.getElementById('resultTableFeed')?.value,
+          feedPerTooth: document.getElementById('resultFeedPerTooth')?.value,
+          drillHeight: document.getElementById('resultDrillHeight')?.value
+        });
+      } catch (error) {
+        console.error('Calculation error:', error);
+        alert('計算過程中發生錯誤，請檢查輸入值！');
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker 註冊成功'))
+          .catch(err => console.log('Service Worker 註冊失敗:', err));
+      });
+    }
+
+    updateInputs();
+    updateParameters();
+    updateResultsDisplay();
+  </script>
+</body>
+</html>
